@@ -68,6 +68,10 @@ if TYPE_CHECKING:
         SessionManager,
     )
     from pydantic_ai_backends.backends.docker.runtimes import get_runtime
+    from pydantic_ai_backends.backends.kubernetes import (
+        KubernetesSandbox,
+        KubernetesSessionManager,
+    )
     from pydantic_ai_backends.hashline import (
         apply_hashline_edit,
         apply_hashline_edit_with_summary,
@@ -128,6 +132,9 @@ _LAZY_IMPORTS = {
     "SessionManager": "pydantic_ai_backends.backends.docker.session",
     "BUILTIN_RUNTIMES": "pydantic_ai_backends.backends.docker.runtimes",
     "get_runtime": "pydantic_ai_backends.backends.docker.runtimes",
+    # Kubernetes sandbox (requires kubernetes extra)
+    "KubernetesSandbox": "pydantic_ai_backends.backends.kubernetes.sandbox",
+    "KubernetesSessionManager": "pydantic_ai_backends.backends.kubernetes.session",
     # Permissions system
     "PermissionAction": "pydantic_ai_backends.permissions",
     "PermissionOperation": "pydantic_ai_backends.permissions",
@@ -198,6 +205,9 @@ __all__ = [
     # Runtimes
     "BUILTIN_RUNTIMES",
     "get_runtime",
+    # Kubernetes sandbox (optional - requires kubernetes extra)
+    "KubernetesSandbox",
+    "KubernetesSessionManager",
     # Permissions system
     "PermissionAction",
     "PermissionOperation",

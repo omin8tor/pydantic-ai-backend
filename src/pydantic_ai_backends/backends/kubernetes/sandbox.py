@@ -65,6 +65,7 @@ class KubernetesSandbox(BaseSandbox):  # pragma: no cover
         service_account: str | None = None,
         labels: dict[str, str] | None = None,
         resources: dict[str, dict[str, str]] | None = None,
+        image_pull_secrets: list[str] | None = None,
     ):
         effective_id = session_id or sandbox_id
         super().__init__(effective_id)
@@ -75,6 +76,7 @@ class KubernetesSandbox(BaseSandbox):  # pragma: no cover
         self._service_account = service_account
         self._extra_labels = labels or {}
         self._resources = resources
+        self._image_pull_secrets = image_pull_secrets or []
         self._pod_name: str | None = None
         self._client: Any = None
 
@@ -168,6 +170,10 @@ class KubernetesSandbox(BaseSandbox):  # pragma: no cover
                 containers=[container],
                 restart_policy="Never",
                 service_account_name=self._service_account,
+                image_pull_secrets=[
+                    k8s.V1LocalObjectReference(name=s) for s in self._image_pull_secrets
+                ]
+                or None,
             ),
         )
 

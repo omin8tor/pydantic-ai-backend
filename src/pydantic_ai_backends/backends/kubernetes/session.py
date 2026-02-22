@@ -25,6 +25,7 @@ class KubernetesSessionManager:
         namespace: str = "default",
         service_account: str | None = None,
         resources: dict[str, dict[str, str]] | None = None,
+        image_pull_secrets: list[str] | None = None,
     ):
         self._sessions: dict[str, KubernetesSandbox] = {}
         self._default_runtime = default_runtime
@@ -32,6 +33,7 @@ class KubernetesSessionManager:
         self._namespace = namespace
         self._service_account = service_account
         self._resources = resources
+        self._image_pull_secrets = image_pull_secrets or []
         self._cleanup_task: asyncio.Task[None] | None = None
 
     @property
@@ -64,6 +66,7 @@ class KubernetesSessionManager:
             namespace=self._namespace,
             service_account=self._service_account,
             resources=self._resources,
+            image_pull_secrets=self._image_pull_secrets,
         )
         sandbox.start()
         self._sessions[session_id] = sandbox

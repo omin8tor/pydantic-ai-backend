@@ -45,6 +45,7 @@ You have access to console tools for file operations and command execution.
 - **Read files**: Use `read_file` (NOT `cat`, `head`, or `tail`)
 - **Edit files**: Use `edit_file` (NOT `sed` or `awk`)
 - **Write files**: Use `write_file` (NOT `echo >` or `cat <<EOF`)
+- **Append to files**: Use `append_file` to add content to the end of an existing file
 - **Shell execution**: Use `execute` ONLY for operations that require a real shell \
 (builds, tests, git commands, package installs, running scripts)
 
@@ -54,6 +55,8 @@ You have access to console tools for file operations and command execution.
 auto-formatters or pre-commit hooks may have changed the content on disk
 - Use `edit_file` for targeted changes (replacing a function, fixing a bug)
 - Use `write_file` only for complete file rewrites or new files
+- For very large files (>50k tokens), write in chunks: use `write_file` for the \
+first portion, then `append_file` for subsequent parts
 - Use `glob` to discover files before operating on them
 - When exploring a codebase, start with `glob("**/*.py")` to understand structure, \
 then `read_file` targeted sections
@@ -126,12 +129,15 @@ hashline_edit(path, start_line=2, start_hash="f1", new_content="")
 - **Read files**: Use `read_file` (NOT `cat`, `head`, or `tail`)
 - **Edit files**: Use `hashline_edit` (NOT `sed` or `awk`)
 - **Write files**: Use `write_file` (NOT `echo >` or `cat <<EOF`)
+- **Append to files**: Use `append_file` to add content to the end of an existing file
 - **Shell execution**: Use `execute` ONLY for operations that require a real shell \
 (builds, tests, git commands, package installs, running scripts)
 
 ### File Operations Best Practices
 - After editing a file, **re-read it before making subsequent edits** to the same file — \
 auto-formatters or pre-commit hooks may have changed the content on disk
+- For very large files (>50k tokens), write in chunks: use `write_file` for the \
+first portion, then `append_file` for subsequent parts
 - When reading large files (>200 lines), use pagination: start with \
 `read_file(path, limit=100)` to scan structure, then read targeted sections \
 with `offset` and `limit`
@@ -405,6 +411,8 @@ or completely overwrites it if it does. Parent directories are created as needed
 `edit_file` makes targeted changes while `write_file` replaces the entire file.
         - Only use `write_file` for: (1) creating new files, or (2) complete rewrites.
         - NEVER create new files unless explicitly required — prefer editing existing ones.
+        - For very large files (>50k tokens), write in chunks: use `write_file` for \
+the first portion, then `append_file` for subsequent parts.
 
         Args:
             path: Path to the file to write.
@@ -417,6 +425,45 @@ or completely overwrites it if it does. Parent directories are created as needed
 
         lines = content.count("\n") + 1
         return f"Wrote {lines} lines to {result.path}"
+
+    # --- append_file tool ---
+    @toolset.tool(requires_approval=write_approval)
+    async def append_file(  # pragma: no cover
+        ctx: RunContext[ConsoleDeps],
+        path: str,
+        content: str,
+    ) -> str:
+        """Append content to the end of an existing file.
+
+        Use this when:
+        - Completing a file that was partially written (e.g., after a truncated \
+`write_file` due to output token limits)
+        - Adding content to an existing file without overwriting it
+        - Writing very large files in chunks — use `write_file` for the first \
+portion, then `append_file` for subsequent parts
+
+        The content is appended directly after the last character of the existing \
+file. No separator or newline is added automatically — include a leading newline \
+in your content if needed.
+
+        Args:
+            path: Path to the file to append to. The file must already exist.
+            content: Content to append to the end of the file.
+        """
+        existing = ctx.deps.backend._read_bytes(path)
+        if not existing:
+            return f"Error: File '{path}' not found. Use write_file to create new files."
+
+        existing_text = existing.decode("utf-8", errors="replace")
+        new_content = existing_text + content
+        result = ctx.deps.backend.write(path, new_content)
+
+        if result.error:
+            return f"Error: {result.error}"
+
+        appended_lines = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+        total_lines = new_content.count("\n") + 1
+        return f"Appended {appended_lines} lines to {result.path} (total: {total_lines} lines)"
 
     # --- edit tool (str_replace or hashline) ---
     if edit_format == "hashline":

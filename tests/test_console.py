@@ -57,6 +57,7 @@ class TestCreateConsoleToolset:
         assert "ls" in tool_names
         assert "read_file" in tool_names
         assert "write_file" in tool_names
+        assert "append_file" in tool_names
         assert "edit_file" in tool_names
         assert "glob" in tool_names
         assert "grep" in tool_names
@@ -316,6 +317,64 @@ class TestImageExports:
         from pydantic_ai_backends import DEFAULT_MAX_IMAGE_BYTES as exported
 
         assert exported == DEFAULT_MAX_IMAGE_BYTES
+
+
+class TestAppendFileTool:
+    """Test append_file tool."""
+
+    def test_append_file_in_default_toolset(self):
+        """Test that append_file is included in default toolset."""
+        toolset = create_console_toolset()
+        assert "append_file" in toolset.tools
+
+    def test_append_file_requires_write_approval(self):
+        """Test append_file respects write approval setting."""
+        toolset = create_console_toolset(require_write_approval=True)
+        assert toolset.tools["append_file"].requires_approval is True
+
+    def test_append_file_no_approval_by_default(self):
+        """Test append_file does not require approval by default."""
+        toolset = create_console_toolset()
+        assert toolset.tools["append_file"].requires_approval is False
+
+    def test_append_to_existing_file_state_backend(self):
+        """Test appending to an existing file via StateBackend."""
+        backend = StateBackend()
+        backend.write("/test.py", "line1\nline2\n")
+
+        existing = backend._read_bytes("/test.py")
+        assert existing != b""
+
+        existing_text = existing.decode("utf-8", errors="replace")
+        new_content = existing_text + "line3\nline4\n"
+        result = backend.write("/test.py", new_content)
+        assert result.error is None
+
+        content = backend.read("/test.py")
+        assert "line1" in content
+        assert "line2" in content
+        assert "line3" in content
+        assert "line4" in content
+
+    def test_append_to_nonexistent_file_state_backend(self):
+        """Test that _read_bytes returns empty for nonexistent file."""
+        backend = StateBackend()
+        result = backend._read_bytes("/nonexistent.py")
+        assert result == b""
+
+    def test_append_preserves_existing_content(self):
+        """Test that append doesn't lose existing content."""
+        backend = StateBackend()
+        backend.write("/app.py", "import os\n")
+
+        existing = backend._read_bytes("/app.py")
+        existing_text = existing.decode("utf-8", errors="replace")
+        new_content = existing_text + "import sys\n"
+        backend.write("/app.py", new_content)
+
+        final = backend.read("/app.py")
+        assert "import os" in final
+        assert "import sys" in final
 
 
 class TestConsoleToolsetAlias:
